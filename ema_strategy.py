@@ -10,11 +10,18 @@ DEMA_PERIOD = 200
 STOP_LOSS_PCT = 0.05  # 5%
 INITIAL_BALANCE = 2000
 
-# Download BTC/USDT-like data (close approximation using BTC-USD)
+# Download BTC/USDT-like data
+ohlcv = []
+limit = 1000
+init_date = pd.Timestamp("2017-01-01")
+today = pd.Timestamp.today()
 exchange = ccxt.binance()
-ohlcv = exchange.fetch_ohlcv('BTC/USDT', since=int(pd.Timestamp("2021-01-01").timestamp()), limit=1500, timeframe='1h')
+while init_date < today:
+    ohlcv += exchange.fetch_ohlcv('BTC/USDT', since=init_date.value // 10**6, limit=limit, timeframe='1h')
+    init_date += pd.Timedelta(1000, "h")
+
 # DataFrame setup
-df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume']).drop_duplicates()
 df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
 df.set_index('timestamp', inplace=True)
 
@@ -41,7 +48,7 @@ for i in range(1, len(df)):
         units = balance / entry_price
         position = True
         entry_time = row.name
-        print(f"Buy at {entry_time} price: {entry_price:.2f}")
+        print(f"[ENTRY] {entry_time} @ {entry_price:.2f}")
 
     # Exit condition
     elif position:
@@ -53,10 +60,10 @@ for i in range(1, len(df)):
             sell_balance = units * price
             position = False
             exit_time = row.name
-            print(f"Sell at {exit_time} price: {price:.2f}")
+            print(f"[EXIT] {exit_time} @ {price:.2f}")
             trades.append({
-                "entry": entry_time,
-                "exit": exit_time,
+                "entry_time": entry_time,
+                "exit_time": exit_time,
                 "entry_price": entry_price,
                 "exit_price": price,
                 "pnl": sell_balance - balance,
@@ -72,12 +79,26 @@ if trades:
     print("\nTrade Summary:")
     print(trade_df)
 
+    # Performance Metrics
+    wins = trade_df[trade_df['pnl'] > 0]
+    losses = trade_df[trade_df['pnl'] <= 0]
+    win_rate = len(wins) / len(trade_df) * 100
+    profit_factor = wins['pnl'].sum() / abs(losses['pnl'].sum()) if not losses.empty else float('inf')
+
+    print("\nStats:")
+    print(f"Total Trades: {len(trade_df)}")
+    print(f"Win Trades: {len(wins)}")
+    print(f"Lose Trades: {len(losses)}")
+    print(f"Win Rate: {win_rate:.2f}%")
+    print(f"Profit Factor: {profit_factor:.2f}")
+    print(f"Total PnL: ${trade_df['pnl'].sum():.2f}")
+
     # Plot
     plt.figure(figsize=(12, 5))
     plt.plot(df["close"], label="Close Price")
     for trade in trades:
-        plt.axvline(trade["entry"], color="blue", linestyle="--", alpha=0.7)
-        plt.axvline(trade["exit"], color="red", linestyle="--", alpha=0.7)
+        plt.axvline(trade["entry_time"], color="blue", linestyle="--", alpha=0.7)
+        plt.axvline(trade["exit_time"], color="red", linestyle="--", alpha=0.7)
     plt.title("EMA Strategy Backtest with pandas-ta")
     plt.legend()
     plt.grid()
