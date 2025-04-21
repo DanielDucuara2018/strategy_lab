@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 # Strategy parameters
 RSI_PERIOD = 2
 EMA_PERIOD = 200
-ADX_PERIOD = 14
+ADX_PERIOD = 20
 INITIAL_BALANCE = 2000
 STOP_LOSS_PCT = 0.10
 ADX_THRESHOLD = 20  # Trend strength filter
