@@ -6,13 +6,10 @@ import matplotlib.pyplot as plt
 # Strategy parameters
 RSI_PERIOD = 2
 EMA_PERIOD = 200
-ADX_PERIOD = 20
-ATR_PERIOD = 20
-BBW_PERIOD = 20
+ADX_PERIOD = 14
 INITIAL_BALANCE = 2000
 STOP_LOSS_PCT = 0.10
 ADX_THRESHOLD = 20  # Trend strength filter
-BBW_THRESHOLD = 0.05  # 5% band width
 
 # Download BTC/USDT-like data
 ohlcv = []
@@ -33,13 +30,6 @@ df.set_index('timestamp', inplace=True)
 df["RSI"] = ta.rsi(df["close"], length=RSI_PERIOD)
 df["EMA"] = ta.ema(df["close"], length=EMA_PERIOD)
 df["ADX"] = ta.adx(df["high"], df["low"], df["close"], length=ADX_PERIOD)[f"ADX_{ADX_PERIOD}"]
-df["ATR"] = ta.atr(df["high"], df["low"], df["close"], length=ATR_PERIOD)
-df["ATR_MA"] = df["ATR"].rolling(ATR_PERIOD).mean()
-bb = ta.bbands(df["close"], length=20)
-df["BBL"] = bb[f"BBL_{BBW_PERIOD}_2.0"]  # Lower band
-df["BBU"] = bb[f"BBU_{BBW_PERIOD}_2.0"]  # Upper band
-df["BBW"] = (df["BBU"] - df["BBL"]) / df["close"]
-df["BBW_SMA"] = df["BBW"].rolling(BBW_PERIOD).mean()
 
 # Backtest setup
 position = False
@@ -56,16 +46,9 @@ for i in range(1, len(df)):
     # Entry: RSI cross up from oversold + price above EMA + ADX strong
     if (
         not position
-        # RSI crosses above oversold (10)
+        and row["close"] > row["EMA"] # trend confirmation
+        and row["ADX"] > ADX_THRESHOLD # trend confirmation
         and prev["RSI"] < 10 < row["RSI"]
-        # Price is above long-term EMA (bullish bias)
-        and row["close"] > row["EMA"]
-        # ADX confirms strong trend (optional: ADX > 20 or 25)
-        and row["ADX"] > ADX_PERIOD
-        # ATR filter: current volatility > historical volatility
-        and row["ATR"] > row["ATR_MA"]
-        # BBW filter: current BB width > average width
-        and row["BBW"] > row["BBW_SMA"]
     ):
         entry_price = row["close"]
         stop_loss_price = entry_price * (1 - STOP_LOSS_PCT)
@@ -77,11 +60,10 @@ for i in range(1, len(df)):
     # Exit: RSI crosses down from overbought + price above EMA or stop loss
     elif position:
         price = row["close"]
-        rsi_down = row["RSI"] < 90 < prev["RSI"]
+        rsi_overbought_cross = row["RSI"] < 90 < prev["RSI"]
         stop_hit = price <= stop_loss_price
-        vol_shrinks = row["ATR"] < row["ATR_MA"] or row["BBW"] < row["BBW_SMA"]
 
-        if stop_hit or (price > row["EMA"] and rsi_down) or vol_shrinks:
+        if stop_hit or (price > row["EMA"] and rsi_overbought_cross):
             sell_balance = units * price
             position = False
             exit_time = row.name
