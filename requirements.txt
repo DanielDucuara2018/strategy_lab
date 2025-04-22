@@ -8,3 +8,4 @@ youtube-transcript-api==1.0.3
 openai==1.75.0
 yfinance==0.2.55
 pandas_ta==0.3.14b0
+scikit-learn==1.6.1
