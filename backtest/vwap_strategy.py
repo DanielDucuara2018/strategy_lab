@@ -108,5 +108,5 @@ unique_labels = dict(zip(labels, handles))
 ax.legend(unique_labels.values(), unique_labels.keys())
 
 # Save the chart
-fig.savefig('vwap_strategy_trade.png')
+fig.savefig('images/vwap_strategy_trade.png')
 print("Chart saved as vwap_strategy_trade.png")

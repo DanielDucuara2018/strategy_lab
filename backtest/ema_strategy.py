@@ -1,13 +1,14 @@
 import pandas as pd
-import pandas_ta as ta
 import ccxt
+import pandas_ta as ta
 import matplotlib.pyplot as plt
 
-# Strategy parameters
-RSI_PERIOD = 14
-EMA_PERIOD = 200
+# Parameters
+TEMA_FAST = 10
+TEMA_SLOW = 50
+DEMA_PERIOD = 200
+STOP_LOSS_PCT = 0.05  # 5%
 INITIAL_BALANCE = 2000
-STOP_LOSS_PCT = 0.01  # 1%
 
 # Download BTC/USDT-like data
 ohlcv = []
@@ -25,16 +26,13 @@ df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
 df.set_index('timestamp', inplace=True)
 
 # Compute indicators using pandas-ta
-df["RSI"] = ta.rsi(df["close"], length=RSI_PERIOD)
-df["EMA"] = ta.ema(df["close"], length=EMA_PERIOD)
-stoch = ta.stoch(df["high"], df["low"], df["close"])
-df["STOCH_K"] = stoch["STOCHk_14_3_3"]
-df["STOCH_D"] = stoch["STOCHd_14_3_3"]
+df["DEMA"] = ta.dema(df["close"], length=DEMA_PERIOD)
+df["TEMA_FAST"] = ta.tema(df["close"], length=TEMA_FAST)
+df["TEMA_SLOW"] = ta.tema(df["close"], length=TEMA_SLOW)
 
 # Backtest logic
 position = False
 entry_price = 0
-stop_loss_price = 0
 balance = INITIAL_BALANCE
 units = 0
 trades = []
@@ -43,14 +41,8 @@ for i in range(1, len(df)):
     row = df.iloc[i]
     prev = df.iloc[i - 1]
 
-    # Entry: Stoch cross up in oversold zone & RSI crosses 50 up
-    if (
-        not position
-        and row["STOCH_K"] < 20
-        and row["STOCH_D"] < 20
-        and prev["STOCH_K"] < row["STOCH_D"] < row["STOCH_K"]
-        and prev["RSI"] < 50 < row["RSI"]
-    ):
+    # Entry condition
+    if not position and row["close"] > row["DEMA"] and prev["TEMA_FAST"] < prev["TEMA_SLOW"] and row["TEMA_FAST"] > row["TEMA_SLOW"]:
         entry_price = row["close"]
         stop_loss_price = entry_price * (1 - STOP_LOSS_PCT)
         units = balance / entry_price
@@ -58,18 +50,13 @@ for i in range(1, len(df)):
         entry_time = row.name
         print(f"[ENTRY] {entry_time} @ {entry_price:.2f}")
 
-    # Exit: Stoch cross down in overbought zone & RSI crosses 50 down
+    # Exit condition
     elif position:
         price = row["close"]
-        stoch_cross_down = (
-            row["STOCH_K"] > 80
-            and row["STOCH_D"] > 80
-            and row["STOCH_K"] < row["STOCH_D"] < prev["STOCH_K"]
-        )
-        rsi_cross_down = row["RSI"] < 50 < prev["RSI"]
         stop_hit = price <= stop_loss_price
+        cross_down = row["close"] > row["DEMA"] and row["TEMA_FAST"] < row["TEMA_SLOW"] < prev["TEMA_FAST"]
 
-        if stop_hit or (stoch_cross_down and rsi_cross_down):
+        if stop_hit or cross_down:
             sell_balance = units * price
             position = False
             exit_time = row.name
@@ -85,8 +72,8 @@ for i in range(1, len(df)):
             })
             balance = sell_balance
 
-# Final results
-print(f"\nFinal Balance: ${balance:.2f}")
+# Show final results
+print(f"\nFinal balance: ${balance:.2f}")
 if trades:
     trade_df = pd.DataFrame(trades)
     print("\nTrade Summary:")
@@ -105,15 +92,15 @@ if trades:
     print(f"Win Rate: {win_rate:.2f}%")
     print(f"Profit Factor: {profit_factor:.2f}")
     print(f"Total PnL: ${trade_df['pnl'].sum():.2f}")
-    
+
     # Plot
-    plt.figure(figsize=(14, 6))
-    plt.plot(df["close"], label="Close Price", alpha=0.7)
+    plt.figure(figsize=(12, 5))
+    plt.plot(df["close"], label="Close Price")
     for trade in trades:
-        plt.axvline(trade["entry_time"], color="green", linestyle="--", alpha=0.6)
-        plt.axvline(trade["exit_time"], color="red", linestyle="--", alpha=0.6)
-    plt.title("Stochastic Strategy Backtest (pandas-ta)")
-    plt.grid(True)
+        plt.axvline(trade["entry_time"], color="blue", linestyle="--", alpha=0.7)
+        plt.axvline(trade["exit_time"], color="red", linestyle="--", alpha=0.7)
+    plt.title("EMA Strategy Backtest with pandas-ta")
     plt.legend()
+    plt.grid()
     plt.tight_layout()
-    plt.savefig("stochastic_strategy")
+    plt.savefig("images/ema_strategy")
