@@ -2,8 +2,16 @@ import ccxt
 import pandas as pd
 import pandas_ta as ta
 import matplotlib.pyplot as plt
+from pathlib import Path
+
+CURRENT_DIR = Path(__file__).parent
+IMAGES_DIR = CURRENT_DIR.joinpath("images")
+DATA_DIR = CURRENT_DIR.joinpath("data")
+
 
 # Strategy parameters
+SYMBOL = "BTC/USDT"
+TIMEFRAME = "1h"
 RSI_PERIOD = 2
 EMA_PERIOD = 200
 ADX_PERIOD = 14
@@ -14,20 +22,11 @@ STOP_LOSS_PCT = 0.05 # 5%
 PERCENTAGE_GAIN = 0.1 # 10%
 ADX_THRESHOLD = 20  # Trend strength filter
 
-# Download BTC/USDT-like data
-ohlcv = []
-limit = 1000
-init_date = pd.Timestamp("2017-01-01")
-today = pd.Timestamp.today()
-exchange = ccxt.binance()
-while init_date < today:
-    ohlcv += exchange.fetch_ohlcv('BTC/USDT', since=init_date.value // 10**6, limit=limit, timeframe='1h')
-    init_date += pd.Timedelta(1000, "h")
-
-# DataFrame setup
-df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume']).drop_duplicates()
-df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+# --- Fetch Data ---
+df = pd.read_csv(DATA_DIR.joinpath(f"{SYMBOL.replace("/","")}_{TIMEFRAME}.csv"))
+df['timestamp'] = pd.to_datetime(df['timestamp'])
 df.set_index('timestamp', inplace=True)
+df = df.drop_duplicates()
 
 # Indicators
 df["RSI"] = ta.rsi(df["close"], length=RSI_PERIOD)
@@ -108,30 +107,30 @@ if trades:
 
     # Performance Metrics
     # Traditional metrics
-    wins = trade_df[trade_df['pnl'] > 0]
-    losses = trade_df[trade_df['pnl'] <= 0]
+    wins = trade_df[trade_df["pnl"] > 0]
+    losses = trade_df[trade_df["pnl"] <= 0]
 
     # Total profits and losses
-    total_wins = wins['pnl'].sum()
-    total_losses = abs(losses['pnl'].sum())  # use abs for losses
+    total_wins = wins["pnl"].sum()
+    total_losses = abs(losses["pnl"].sum())  # use abs for losses
 
     # Value-weighted win rate (profit share)
     value_weighted_win_rate = total_wins / (total_wins + total_losses) * 100 if (total_wins + total_losses) > 0 else 0
 
     # Existing metrics
     win_rate = len(wins) / len(trade_df) * 100
-    profit_factor = total_wins / total_losses if total_losses != 0 else float('inf')
+    profit_factor = total_wins / total_losses if total_losses != 0 else float("inf")
 
     print("\nStats:")
     print(f"Total Trades: {len(trade_df)}")
     print(f"Win Trades: {len(wins)}")
     print(f"Lose Trades: {len(losses)}")
-    print(f"Max win: ${wins['pnl'].max():.2f}")
-    print(f"Max lose: ${losses['pnl'].min():.2f}")
+    print(f"Max win: ${wins["pnl"].max():.2f}")
+    print(f"Max lose: ${losses["pnl"].min():.2f}")
     print(f"Win Rate (Count-Based): {win_rate:.2f}%")
     print(f"Win Rate (PnL-Weighted): {value_weighted_win_rate:.2f}%")  # 💥 New metric here
     print(f"Profit Factor: {profit_factor:.2f}")
-    print(f"Total PnL: ${trade_df['pnl'].sum():.2f}")
+    print(f"Total PnL: ${trade_df["pnl"].sum():.2f}")
 
     # Plot
     plt.figure(figsize=(14, 6))
@@ -139,8 +138,19 @@ if trades:
     for trade in trades:
         plt.axvline(trade["entry_time"], color="green", linestyle="--", alpha=0.6)
         plt.axvline(trade["exit_time"], color="red", linestyle="--", alpha=0.6)
-    plt.title("Enhanced RSI Strategy Backtest")
+    plt.title("RSI Strategy Backtest")
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
-    plt.savefig("images/rsi_strategy")
+    plt.savefig(IMAGES_DIR.joinpath(f"{SYMBOL.replace("/","")}_rsi_strategy"))
+
+    # --- Plot Equity Curve ---
+    plt.figure(figsize=(12,6))
+    plt.plot(trade_df["old_balance"])
+    plt.title("RSI Strategy Strategy Equity Curve")
+    plt.xlabel("Trades")
+    plt.ylabel("Balance")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(IMAGES_DIR.joinpath(f"{SYMBOL.replace("/","")}_rsi_equity_curve.png"))
+
