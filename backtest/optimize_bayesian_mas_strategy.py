@@ -20,21 +20,35 @@ df = df.drop_duplicates()
 def sma(series, length):
     return series.rolling(window=length).mean()
 
-def atr(df, period):
-    high_low = df['high'] - df['low']
-    high_close = np.abs(df['high'] - df['close'].shift())
-    low_close = np.abs(df['low'] - df['close'].shift())
-    tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-    return tr.rolling(window=period).mean()
+def ema(series, length):
+    return series.ewm(span=length, adjust=False).mean()
 
-def backtest_advanced(df, fast, slow, atr_period, atr_trail_mult, stop_loss_mult, take_profit_mult,
+def rsi(series, period=14):
+    delta = series.diff()
+    gain = np.where(delta > 0, delta, 0)
+    loss = np.where(delta < 0, -delta, 0)
+    avg_gain = pd.Series(gain).rolling(window=period).mean()
+    avg_loss = pd.Series(loss).rolling(window=period).mean()
+    rs = avg_gain / avg_loss
+    return 100 - (100 / (1 + rs))
+
+def macd(series, fast=12, slow=26, signal=9):
+    ema_fast = ema(series, fast)
+    ema_slow = ema(series, slow)
+    macd_line = ema_fast - ema_slow
+    signal_line = ema(macd_line, signal)
+    histogram = macd_line - signal_line
+    return macd_line, signal_line, histogram
+
+def backtest_advanced(df, fast, slow, rsi_period, rsi_threshold, macd_fast, macd_slow, macd_signal,
                       commission=0.0004, slippage=0.0005, initial_balance=2000):
     df = df.copy()
     df['FAST'] = sma(df['close'], fast)
     df['SLOW'] = sma(df['close'], slow)
     df['SPREAD'] = df['FAST'] - df['SLOW']
     df['SPREAD_SIGN'] = np.where(df['SPREAD'] > 0, 1, -1)
-    df['ATR'] = atr(df, atr_period)
+    df['RSI'] = rsi(df['close'], rsi_period)
+    df['MACD'], df['MACD_SIGNAL'], df['MACD_HIST'] = macd(df['close'], macd_fast, macd_slow, macd_signal)
 
     balance = initial_balance
     peak_balance = initial_balance
@@ -47,8 +61,17 @@ def backtest_advanced(df, fast, slow, atr_period, atr_trail_mult, stop_loss_mult
     for i in range(2, len(df)):
         row, prev, prev2 = df.iloc[i], df.iloc[i-1], df.iloc[i-2]
 
-        enter_long = not position and prev2['SPREAD_SIGN'] == -1 and prev['SPREAD_SIGN'] == -1 and row['SPREAD_SIGN'] == 1
-        exit_long = position and (prev2['SPREAD_SIGN'] == 1 and prev['SPREAD_SIGN'] == 1 and row['SPREAD_SIGN'] == -1)
+        enter_long = (
+            not position
+            and prev2['SPREAD_SIGN'] == -1 and prev['SPREAD_SIGN'] == -1 and row['SPREAD_SIGN'] == 1
+            and row['RSI'] > rsi_threshold
+            and row['MACD'] > row['MACD_SIGNAL']
+        )
+
+        exit_long = (
+            position
+            and (prev2['SPREAD_SIGN'] == 1 and prev['SPREAD_SIGN'] == 1 and row['SPREAD_SIGN'] == -1)
+        )
 
         if enter_long:
             entry_price = row['close'] * (1 + slippage + commission)
@@ -78,19 +101,19 @@ def backtest_advanced(df, fast, slow, atr_period, atr_trail_mult, stop_loss_mult
 def objective(trial):
     fast = trial.suggest_int('fast', 10, 30)
     slow = trial.suggest_int('slow', 50, 120)
-    atr_period = trial.suggest_int('atr_period', 10, 20)
-    atr_trail_mult = trial.suggest_float('atr_trail_mult', 1.0, 2.0)
-    stop_loss_mult = trial.suggest_float('stop_loss_mult', 1.0, 2.0)
-    take_profit_mult = trial.suggest_float('take_profit_mult', 2.0, 4.0)
+    rsi_period = trial.suggest_int('rsi_period', 10, 20)
+    rsi_threshold = trial.suggest_int('rsi_threshold', 50, 70)
+    macd_fast = trial.suggest_int('macd_fast', 8, 15)
+    macd_slow = trial.suggest_int('macd_slow', 20, 30)
+    macd_signal = trial.suggest_int('macd_signal', 5, 12)
 
-    if fast >= slow:
+    if fast >= slow or macd_fast >= macd_slow:
         return -9999
 
     final_balance, win_rate, profit_factor, max_drawdown = backtest_advanced(
-        df, fast, slow, atr_period, atr_trail_mult, stop_loss_mult, take_profit_mult
+        df, fast, slow, rsi_period, rsi_threshold, macd_fast, macd_slow, macd_signal
     )
 
-    # Scoring system: balance + (profit_factor bonus) - (drawdown penalty)
     score = (final_balance - 2000) \
             + (profit_factor * 500) \
             + (win_rate * 1000) \
@@ -100,7 +123,7 @@ def objective(trial):
 
 # --- Launch Optimization ---
 study = optuna.create_study(direction='maximize')
-study.optimize(objective, n_trials=300, n_jobs=-1)  # n_jobs=-1 utilise tous les cores dispo
+study.optimize(objective, n_trials=300, n_jobs=-1)
 
 # --- Results ---
 print("\nBest Parameters Found:")

@@ -16,6 +16,11 @@ FAST_EMA = 15
 SLOW_EMA = 101
 ATR_PERIOD = 10
 ADX_PERIOD = 14
+RSI_PERIOD = 12
+RSI_THRESHOLD = 54
+MACD_FAST = 10
+MACD_SLOW = 25
+MACD_SIGNAL = 7
 ATR_TRAIL_MULTIPLIER = 1.365649182010661
 STOP_LOSS_ATR_MULTIPLIER = 1.853263443798225
 TAKE_PROFIT_ATR_MULTIPLIER = 2.051437509435095
@@ -35,9 +40,13 @@ df["FAST"] = ta.sma(df["close"], length=FAST_EMA)
 df["SLOW"] = ta.sma(df["close"], length=SLOW_EMA)
 df["SPREAD"] = df["FAST"] - df["SLOW"]
 df["SPREAD_SIGN"] = df["SPREAD"].apply(lambda x: 1 if x > 0 else -1)
+df["RSI"] = ta.rsi(df["close"], length=RSI_PERIOD)
+macd = ta.macd(df["close"], MACD_FAST, MACD_SLOW, MACD_SIGNAL)
+df["MACD"], df["MACD_SIGNAL"] = macd[f"MACD_{MACD_FAST}_{MACD_SLOW}_{MACD_SIGNAL}"], macd[f"MACDs_{MACD_FAST}_{MACD_SLOW}_{MACD_SIGNAL}"]
+
 df["ATR"] = ta.atr(df["high"], df["low"], df["close"], length=ATR_PERIOD)
 df["ATR_MA"] = df["ATR"].rolling(50).mean()
-# df["ADX"] = ta.adx(df["high"], df["low"], df["close"], length=ADX_PERIOD)[f"ADX_{ADX_PERIOD}"]
+df["ADX"] = ta.adx(df["high"], df["low"], df["close"], length=ADX_PERIOD)[f"ADX_{ADX_PERIOD}"]
 
 # --- Backtest Variables ---
 position = False
@@ -57,6 +66,8 @@ for i in range(2, len(df)):
     enter_long = (
         not position
         and prev2["SPREAD_SIGN"] == -1 and prev["SPREAD_SIGN"] == -1 and row["SPREAD_SIGN"] == 1
+        and row['RSI'] > RSI_THRESHOLD
+        and row['MACD'] > row['MACD_SIGNAL']
         # and row["close"] > row["EMA_FAST"]
         # and row["ATR"] > row["ATR_MA"]
         # and trend_bullish
