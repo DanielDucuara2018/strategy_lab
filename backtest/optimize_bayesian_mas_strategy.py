@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 import optuna
-import matplotlib.pyplot as plt
 from pathlib import Path
 
 CURRENT_DIR = Path(__file__).parent
@@ -40,7 +39,14 @@ def macd(series, fast=12, slow=26, signal=9):
     histogram = macd_line - signal_line
     return macd_line, signal_line, histogram
 
-def backtest_advanced(df, fast, slow, rsi_period, rsi_threshold, macd_fast, macd_slow, macd_signal,
+def bollinger_bands(series, period=20, num_std=2):
+    sma_ = sma(series, period)
+    std = series.rolling(window=period).std()
+    upper = sma_ + num_std * std
+    lower = sma_ - num_std * std
+    return upper, lower
+
+def backtest_advanced(df, fast, slow, rsi_period, rsi_threshold, macd_fast, macd_slow, macd_signal, bb_period, bb_mult,
                       commission=0.0004, slippage=0.0005, initial_balance=2000):
     df = df.copy()
     df['FAST'] = sma(df['close'], fast)
@@ -49,6 +55,7 @@ def backtest_advanced(df, fast, slow, rsi_period, rsi_threshold, macd_fast, macd
     df['SPREAD_SIGN'] = np.where(df['SPREAD'] > 0, 1, -1)
     df['RSI'] = rsi(df['close'], rsi_period)
     df['MACD'], df['MACD_SIGNAL'], df['MACD_HIST'] = macd(df['close'], macd_fast, macd_slow, macd_signal)
+    df['BB_UPPER'], df['BB_LOWER'] = bollinger_bands(df['close'], period=bb_period, num_std=bb_mult)
 
     balance = initial_balance
     peak_balance = initial_balance
@@ -60,12 +67,16 @@ def backtest_advanced(df, fast, slow, rsi_period, rsi_threshold, macd_fast, macd
 
     for i in range(2, len(df)):
         row, prev, prev2 = df.iloc[i], df.iloc[i-1], df.iloc[i-2]
+        rsi_ok = row['RSI'] < rsi_threshold
+        macd_ok = row['MACD'] > row['MACD_SIGNAL']
+        bb_ok = row['close'] < row['BB_LOWER']
 
         enter_long = (
             not position
             and prev2['SPREAD_SIGN'] == -1 and prev['SPREAD_SIGN'] == -1 and row['SPREAD_SIGN'] == 1
-            and row['RSI'] > rsi_threshold
-            and row['MACD'] > row['MACD_SIGNAL']
+            and rsi_ok
+            and macd_ok
+            and bb_ok
         )
 
         exit_long = (
@@ -106,12 +117,14 @@ def objective(trial):
     macd_fast = trial.suggest_int('macd_fast', 8, 15)
     macd_slow = trial.suggest_int('macd_slow', 20, 30)
     macd_signal = trial.suggest_int('macd_signal', 5, 12)
+    bb_period = trial.suggest_int('bb_period', 15, 25)
+    bb_mult = trial.suggest_float('bb_mult', 1.5, 2.5)
 
     if fast >= slow or macd_fast >= macd_slow:
         return -9999
 
     final_balance, win_rate, profit_factor, max_drawdown = backtest_advanced(
-        df, fast, slow, rsi_period, rsi_threshold, macd_fast, macd_slow, macd_signal
+        df, fast, slow, rsi_period, rsi_threshold, macd_fast, macd_slow, macd_signal, bb_period, bb_mult
     )
 
     score = (final_balance - 2000) \

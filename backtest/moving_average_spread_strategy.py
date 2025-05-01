@@ -1,4 +1,3 @@
-import ccxt
 import pandas as pd
 import pandas_ta as ta
 import matplotlib.pyplot as plt
@@ -10,17 +9,20 @@ DATA_DIR = CURRENT_DIR.joinpath("data")
 
 # --- Parameters ---
 INITIAL_BALANCE = 2000
-SYMBOL = "BTC/USDT"
+SYMBOL = "ETH/USDT"
 TIMEFRAME = "1h"
-FAST_EMA = 15
-SLOW_EMA = 101
+FAST_EMA = 17
+SLOW_EMA = 72
+RSI_PERIOD = 20
+RSI_THRESHOLD = 67
+MACD_FAST = 14
+MACD_SLOW = 22
+MACD_SIGNAL = 7
+BB_PERIOD = 19
+BB_MULT = 2.050230528935784
+
 ATR_PERIOD = 10
 ADX_PERIOD = 14
-RSI_PERIOD = 12
-RSI_THRESHOLD = 54
-MACD_FAST = 10
-MACD_SLOW = 25
-MACD_SIGNAL = 7
 ATR_TRAIL_MULTIPLIER = 1.365649182010661
 STOP_LOSS_ATR_MULTIPLIER = 1.853263443798225
 TAKE_PROFIT_ATR_MULTIPLIER = 2.051437509435095
@@ -43,6 +45,8 @@ df["SPREAD_SIGN"] = df["SPREAD"].apply(lambda x: 1 if x > 0 else -1)
 df["RSI"] = ta.rsi(df["close"], length=RSI_PERIOD)
 macd = ta.macd(df["close"], MACD_FAST, MACD_SLOW, MACD_SIGNAL)
 df["MACD"], df["MACD_SIGNAL"] = macd[f"MACD_{MACD_FAST}_{MACD_SLOW}_{MACD_SIGNAL}"], macd[f"MACDs_{MACD_FAST}_{MACD_SLOW}_{MACD_SIGNAL}"]
+bbands = ta.bbands(df['close'], period=BB_PERIOD, std=BB_MULT)
+df['BB_UPPER'], df['BB_LOWER'] = bbands[f"BBU_5_{BB_MULT}"], bbands[f"BBL_5_{BB_MULT}"]
 
 df["ATR"] = ta.atr(df["high"], df["low"], df["close"], length=ATR_PERIOD)
 df["ATR_MA"] = df["ATR"].rolling(50).mean()
@@ -68,6 +72,8 @@ for i in range(2, len(df)):
         and prev2["SPREAD_SIGN"] == -1 and prev["SPREAD_SIGN"] == -1 and row["SPREAD_SIGN"] == 1
         and row['RSI'] > RSI_THRESHOLD
         and row['MACD'] > row['MACD_SIGNAL']
+        # and row['close'] < row['BB_LOWER']
+
         # and row["close"] > row["EMA_FAST"]
         # and row["ATR"] > row["ATR_MA"]
         # and trend_bullish
