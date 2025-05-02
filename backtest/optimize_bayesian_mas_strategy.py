@@ -63,7 +63,15 @@ def adx(df, period):
     return dx.rolling(window=period).mean()
 
 
-def backtest_advanced(df, fast, slow, rsi_period, rsi_threshold, macd_fast, macd_slow, macd_signal, adx_period, adx_thresh,
+def atr(df, period=14):
+    high_low = df['high'] - df['low']
+    high_close = (df['high'] - df['close'].shift()).abs()
+    low_close = (df['low'] - df['close'].shift()).abs()
+    tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+    return tr.rolling(window=period).mean()
+
+
+def backtest_advanced(df, fast, slow, rsi_period, rsi_threshold, macd_fast, macd_slow, macd_signal, atr_period, atr_ma_period, trail_mult,
                       commission=0.0004, slippage=0.0005, initial_balance=2000):
     df = df.copy()
     df['FAST'] = sma(df['close'], fast)
@@ -73,7 +81,10 @@ def backtest_advanced(df, fast, slow, rsi_period, rsi_threshold, macd_fast, macd
     df['RSI'] = rsi(df['close'], rsi_period)
     df['MACD'], df['MACD_SIGNAL'], df['MACD_HIST'] = macd(df['close'], macd_fast, macd_slow, macd_signal)
     # df['BB_UPPER'], df['BB_LOWER'] = bollinger_bands(df['close'], period=bb_period, num_std=bb_mult)
-    df['ADX'] = adx(df, adx_period)
+    # df['ADX'] = adx(df, adx_period)
+    df['ATR'] = atr(df, atr_period)
+    df['ATR_MA'] = df['ATR'].rolling(window=atr_ma_period).mean()
+
 
     balance = initial_balance
     peak_balance = initial_balance
@@ -88,8 +99,7 @@ def backtest_advanced(df, fast, slow, rsi_period, rsi_threshold, macd_fast, macd
         rsi_ok = row['RSI'] < rsi_threshold
         macd_ok = row['MACD'] > row['MACD_SIGNAL']
         # bb_ok = row['close'] < row['BB_LOWER']
-        adx_ok = row['ADX'] > adx_thresh
-
+        # adx_ok = row['ADX'] > adx_thresh
 
         enter_long = (
             not position
@@ -97,30 +107,39 @@ def backtest_advanced(df, fast, slow, rsi_period, rsi_threshold, macd_fast, macd
             and rsi_ok
             and macd_ok
             # and bb_ok
-            and adx_ok
+            # and adx_ok
         )
 
         exit_long = (
             position
-            and (prev2['SPREAD_SIGN'] == 1 and prev['SPREAD_SIGN'] == 1 and row['SPREAD_SIGN'] == -1)
+            and (
+                prev2['SPREAD_SIGN'] == 1 and prev['SPREAD_SIGN'] == 1 and row['SPREAD_SIGN'] == -1
+                # or (row['RSI'] > rsi_exit)
+                # or (row['MACD'] < row['MACD_SIGNAL'])
+            )
         )
+
 
         if enter_long:
             entry_price = row['close'] * (1 + slippage + commission)
             units = balance / entry_price
             position = True
             entry_time = row.name
+            trailing_stop = row['close'] - trail_mult * row['ATR_MA']
 
-        elif exit_long:
-            exit_price = row['close'] * (1 - slippage - commission)
-            pnl = (exit_price - entry_price) * units
-            balance += pnl
-            trades.append(pnl)
-            peak_balance = max(peak_balance, balance)
-            drawdown = (peak_balance - balance) / peak_balance
-            max_drawdown = max(max_drawdown, drawdown)
-            position = False
-            units = 0
+        # elif exit_long:
+        elif position:
+            trailing_stop = max(trailing_stop, row['close'] - trail_mult * row['ATR_MA'])
+            if row['close'] < trailing_stop:
+                exit_price = row['close'] * (1 - slippage - commission)
+                pnl = (exit_price - entry_price) * units
+                balance += pnl
+                trades.append(pnl)
+                peak_balance = max(peak_balance, balance)
+                drawdown = (peak_balance - balance) / peak_balance
+                max_drawdown = max(max_drawdown, drawdown)
+                position = False
+                units = 0
 
     if not trades:
         return initial_balance, 0, float('inf'), 0
@@ -140,14 +159,19 @@ def objective(trial):
     macd_signal = trial.suggest_int('macd_signal', 5, 12)
     # bb_period = trial.suggest_int('bb_period', 15, 25)
     # bb_mult = trial.suggest_float('bb_mult', 1.5, 2.5)
-    adx_period = trial.suggest_int('adx_period', 10, 20)
-    adx_thresh = trial.suggest_float('adx_thresh', 15, 30)
+    # adx_period = trial.suggest_int('adx_period', 10, 20)
+    # adx_thresh = trial.suggest_float('adx_thresh', 15, 30)
+    # rsi_exit = trial.suggest_int('rsi_exit', 60, 80)
+    atr_period = trial.suggest_int('atr_period', 10, 20)
+    atr_ma_period = trial.suggest_int('atr_ma_period', 2, 5)
+    trail_mult = trial.suggest_float('trail_mult', 1.0, 3.0)
+
 
     if fast >= slow or macd_fast >= macd_slow:
         return -9999
 
     final_balance, win_rate, profit_factor, max_drawdown = backtest_advanced(
-        df, fast, slow, rsi_period, rsi_threshold, macd_fast, macd_slow, macd_signal, adx_period, adx_thresh
+        df, fast, slow, rsi_period, rsi_threshold, macd_fast, macd_slow, macd_signal, atr_period, atr_ma_period, trail_mult
     )
 
     score = (final_balance - 2000) \

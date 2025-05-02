@@ -11,20 +11,22 @@ DATA_DIR = CURRENT_DIR.joinpath("data")
 INITIAL_BALANCE = 2000
 SYMBOL = "BTC/USDT"
 TIMEFRAME = "1h"
-FAST_EMA = 25
-SLOW_EMA = 111
-RSI_PERIOD = 10
-RSI_THRESHOLD = 50
-MACD_FAST = 10
-MACD_SLOW = 26
-MACD_SIGNAL = 10
+FAST_EMA = 10
+SLOW_EMA = 70
+RSI_PERIOD = 19
+RSI_THRESHOLD = 64
+# RSI_EXIT = 76
+MACD_FAST = 11
+MACD_SLOW = 24
+MACD_SIGNAL = 12
 # BB_PERIOD = 19
 # BB_MULT = 2.050230528935784
-ADX_PERIOD = 13
-ADX_THRESHOLD = 26.487381358163116  # Confirm trending conditions
+# ADX_PERIOD = 13
+# ADX_THRESHOLD = 26.487381358163116  # Confirm trending conditions
+ATR_PERIOD = 15
+ATR_MA_PERIOD = 5
+ATR_TRAIL_MULTIPLIER = 2.0952148274696576
 
-ATR_PERIOD = 10
-ATR_TRAIL_MULTIPLIER = 1.365649182010661
 STOP_LOSS_ATR_MULTIPLIER = 1.853263443798225
 TAKE_PROFIT_ATR_MULTIPLIER = 2.051437509435095
 ATR_THRESHOLD = 50  # Minimum ATR value to enter trades
@@ -47,10 +49,9 @@ macd = ta.macd(df["close"], MACD_FAST, MACD_SLOW, MACD_SIGNAL)
 df["MACD"], df["MACD_SIGNAL"] = macd[f"MACD_{MACD_FAST}_{MACD_SLOW}_{MACD_SIGNAL}"], macd[f"MACDs_{MACD_FAST}_{MACD_SLOW}_{MACD_SIGNAL}"]
 # bbands = ta.bbands(df['close'], period=BB_PERIOD, std=BB_MULT)
 # df['BB_UPPER'], df['BB_LOWER'] = bbands[f"BBU_5_{BB_MULT}"], bbands[f"BBL_5_{BB_MULT}"]
-df["ADX"] = ta.adx(df["high"], df["low"], df["close"], length=ADX_PERIOD)[f"ADX_{ADX_PERIOD}"]
-
+# df["ADX"] = ta.adx(df["high"], df["low"], df["close"], length=ADX_PERIOD)[f"ADX_{ADX_PERIOD}"]
 df["ATR"] = ta.atr(df["high"], df["low"], df["close"], length=ATR_PERIOD)
-df["ATR_MA"] = df["ATR"].rolling(50).mean()
+df["ATR_MA"] = df["ATR"].rolling(ATR_MA_PERIOD).mean()
 
 # --- Backtest Variables ---
 position = False
@@ -73,7 +74,7 @@ for i in range(2, len(df)):
         and row['RSI'] > RSI_THRESHOLD
         and row['MACD'] > row['MACD_SIGNAL']
         # and row['close'] < row['BB_LOWER']
-        and row['ADX'] > ADX_THRESHOLD
+        # and row['ADX'] > ADX_THRESHOLD
 
         # and row["close"] > row["EMA_FAST"]
         # and row["ATR"] > row["ATR_MA"]
@@ -82,8 +83,11 @@ for i in range(2, len(df)):
 
     exit_long = (
         position
-        and prev2["SPREAD_SIGN"] == 1 and prev["SPREAD_SIGN"] == 1 and row["SPREAD_SIGN"] == -1
-        # and row["close"] < (row["close"] - ATR_TRAIL_MULTIPLIER * row["ATR"])
+        and (
+            prev2['SPREAD_SIGN'] == 1 and prev['SPREAD_SIGN'] == 1 and row['SPREAD_SIGN'] == -1
+            # or (row['RSI'] > RSI_EXIT)
+            # or (row['MACD'] < row['MACD_SIGNAL'])
+        )
     )
 
     # --- Entry Conditions ---
@@ -93,27 +97,31 @@ for i in range(2, len(df)):
         position = True
         entry_time = row.name
         print(f"[ENTRY] {entry_time} @ {entry_price:.2f}")
+        trailing_stop = row['close'] - ATR_TRAIL_MULTIPLIER * row['ATR_MA']
 
 
     # --- Exit Conditions ---
-    elif exit_long:
-        exit_price = row["close"] * (1 - SLIPPAGE - COMMISSION)
-        pnl = (exit_price - entry_price) * units
-        exit_time = row.name
-        print(f"[LONG EXIT] {exit_time} @ {exit_price:.2f}")
-        trades.append({
-            "entry_time": entry_time,
-            "exit_time": exit_time,
-            "entry_price": entry_price,
-            "exit_price": exit_price,
-            "pnl": pnl,
-            "return_pct": pnl / (units * entry_price) * 100,
-            "old_balance": balance,
-            "new_balance": balance + pnl
-        })
-        balance += pnl
-        position = False
-        units = 0 
+    # elif exit_long:
+    elif position:
+        trailing_stop = max(trailing_stop, row['close'] - ATR_TRAIL_MULTIPLIER * row['ATR_MA'])
+        if row['close'] < trailing_stop:
+            exit_price = row["close"] * (1 - SLIPPAGE - COMMISSION)
+            pnl = (exit_price - entry_price) * units
+            exit_time = row.name
+            print(f"[LONG EXIT] {exit_time} @ {exit_price:.2f}")
+            trades.append({
+                "entry_time": entry_time,
+                "exit_time": exit_time,
+                "entry_price": entry_price,
+                "exit_price": exit_price,
+                "pnl": pnl,
+                "return_pct": pnl / (units * entry_price) * 100,
+                "old_balance": balance,
+                "new_balance": balance + pnl
+            })
+            balance += pnl
+            position = False
+            units = 0 
 
 # --- Results ---
 print(f"\nFinal Balance: ${balance:.2f}")
