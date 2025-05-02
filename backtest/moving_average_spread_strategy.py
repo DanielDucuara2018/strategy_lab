@@ -9,25 +9,25 @@ DATA_DIR = CURRENT_DIR.joinpath("data")
 
 # --- Parameters ---
 INITIAL_BALANCE = 2000
-SYMBOL = "ETH/USDT"
+SYMBOL = "BTC/USDT"
 TIMEFRAME = "1h"
-FAST_EMA = 17
-SLOW_EMA = 72
-RSI_PERIOD = 20
-RSI_THRESHOLD = 67
-MACD_FAST = 14
-MACD_SLOW = 22
-MACD_SIGNAL = 7
-BB_PERIOD = 19
-BB_MULT = 2.050230528935784
+FAST_EMA = 25
+SLOW_EMA = 111
+RSI_PERIOD = 10
+RSI_THRESHOLD = 50
+MACD_FAST = 10
+MACD_SLOW = 26
+MACD_SIGNAL = 10
+# BB_PERIOD = 19
+# BB_MULT = 2.050230528935784
+ADX_PERIOD = 13
+ADX_THRESHOLD = 26.487381358163116  # Confirm trending conditions
 
 ATR_PERIOD = 10
-ADX_PERIOD = 14
 ATR_TRAIL_MULTIPLIER = 1.365649182010661
 STOP_LOSS_ATR_MULTIPLIER = 1.853263443798225
 TAKE_PROFIT_ATR_MULTIPLIER = 2.051437509435095
 ATR_THRESHOLD = 50  # Minimum ATR value to enter trades
-ADX_THRESHOLD = 20  # Confirm trending conditions
 COMMISSION = 0.0004  # 0.04% per trade
 SLIPPAGE = 0.0005  # 0.05% slippage
 
@@ -45,12 +45,12 @@ df["SPREAD_SIGN"] = df["SPREAD"].apply(lambda x: 1 if x > 0 else -1)
 df["RSI"] = ta.rsi(df["close"], length=RSI_PERIOD)
 macd = ta.macd(df["close"], MACD_FAST, MACD_SLOW, MACD_SIGNAL)
 df["MACD"], df["MACD_SIGNAL"] = macd[f"MACD_{MACD_FAST}_{MACD_SLOW}_{MACD_SIGNAL}"], macd[f"MACDs_{MACD_FAST}_{MACD_SLOW}_{MACD_SIGNAL}"]
-bbands = ta.bbands(df['close'], period=BB_PERIOD, std=BB_MULT)
-df['BB_UPPER'], df['BB_LOWER'] = bbands[f"BBU_5_{BB_MULT}"], bbands[f"BBL_5_{BB_MULT}"]
+# bbands = ta.bbands(df['close'], period=BB_PERIOD, std=BB_MULT)
+# df['BB_UPPER'], df['BB_LOWER'] = bbands[f"BBU_5_{BB_MULT}"], bbands[f"BBL_5_{BB_MULT}"]
+df["ADX"] = ta.adx(df["high"], df["low"], df["close"], length=ADX_PERIOD)[f"ADX_{ADX_PERIOD}"]
 
 df["ATR"] = ta.atr(df["high"], df["low"], df["close"], length=ATR_PERIOD)
 df["ATR_MA"] = df["ATR"].rolling(50).mean()
-df["ADX"] = ta.adx(df["high"], df["low"], df["close"], length=ADX_PERIOD)[f"ADX_{ADX_PERIOD}"]
 
 # --- Backtest Variables ---
 position = False
@@ -73,6 +73,7 @@ for i in range(2, len(df)):
         and row['RSI'] > RSI_THRESHOLD
         and row['MACD'] > row['MACD_SIGNAL']
         # and row['close'] < row['BB_LOWER']
+        and row['ADX'] > ADX_THRESHOLD
 
         # and row["close"] > row["EMA_FAST"]
         # and row["ATR"] > row["ATR_MA"]
