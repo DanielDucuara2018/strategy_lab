@@ -11,14 +11,14 @@ DATA_DIR = CURRENT_DIR.joinpath("data")
 INITIAL_BALANCE = 2000
 SYMBOL = "BTC/USDT"
 TIMEFRAME = "1h"
-FAST_EMA = 10
-SLOW_EMA = 70
-RSI_PERIOD = 19
-RSI_THRESHOLD = 64
+FAST_EMA = 8
+SLOW_EMA = 84
+RSI_PERIOD = 12
+RSI_THRESHOLD = 54
 # RSI_EXIT = 76
-MACD_FAST = 11
-MACD_SLOW = 24
-MACD_SIGNAL = 12
+MACD_FAST = 10
+MACD_SLOW = 41
+MACD_SIGNAL = 11
 # BB_PERIOD = 19
 # BB_MULT = 2.050230528935784
 # ADX_PERIOD = 13
@@ -71,7 +71,7 @@ for i in range(2, len(df)):
     enter_long = (
         not position
         and prev2["SPREAD_SIGN"] == -1 and prev["SPREAD_SIGN"] == -1 and row["SPREAD_SIGN"] == 1
-        and row['RSI'] > RSI_THRESHOLD
+        # and row['RSI'] < RSI_THRESHOLD
         and row['MACD'] > row['MACD_SIGNAL']
         # and row['close'] < row['BB_LOWER']
         # and row['ADX'] > ADX_THRESHOLD
@@ -101,27 +101,27 @@ for i in range(2, len(df)):
 
 
     # --- Exit Conditions ---
-    # elif exit_long:
-    elif position:
-        trailing_stop = max(trailing_stop, row['close'] - ATR_TRAIL_MULTIPLIER * row['ATR_MA'])
-        if row['close'] < trailing_stop:
-            exit_price = row["close"] * (1 - SLIPPAGE - COMMISSION)
-            pnl = (exit_price - entry_price) * units
-            exit_time = row.name
-            print(f"[LONG EXIT] {exit_time} @ {exit_price:.2f}")
-            trades.append({
-                "entry_time": entry_time,
-                "exit_time": exit_time,
-                "entry_price": entry_price,
-                "exit_price": exit_price,
-                "pnl": pnl,
-                "return_pct": pnl / (units * entry_price) * 100,
-                "old_balance": balance,
-                "new_balance": balance + pnl
-            })
-            balance += pnl
-            position = False
-            units = 0 
+    elif exit_long:
+    # elif position:
+    #     trailing_stop = max(trailing_stop, row['close'] - ATR_TRAIL_MULTIPLIER * row['ATR_MA'])
+    #     if row['close'] < trailing_stop:
+        exit_price = row["close"] * (1 - SLIPPAGE - COMMISSION)
+        pnl = (exit_price - entry_price) * units
+        exit_time = row.name
+        print(f"[LONG EXIT] {exit_time} @ {exit_price:.2f}")
+        trades.append({
+            "entry_time": entry_time,
+            "exit_time": exit_time,
+            "entry_price": entry_price,
+            "exit_price": exit_price,
+            "pnl": pnl,
+            "return_pct": pnl / (units * entry_price) * 100,
+            "old_balance": balance,
+            "new_balance": balance + pnl
+        })
+        balance += pnl
+        position = False
+        units = 0 
 
 # --- Results ---
 print(f"\nFinal Balance: ${balance:.2f}")
