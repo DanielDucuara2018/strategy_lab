@@ -20,14 +20,14 @@ def get_data(symbol: str, timeframe: str):
     df.set_index("timestamp", inplace=True)
     return df.drop_duplicates()
 
-def backtest_advanced(df, fast, slow, macd_fast, macd_slow, macd_signal,
+def backtest_advanced(df, fast, slow, rsi_period, rsi_threshold, macd_fast, macd_slow, macd_signal,
                       commission=0.0004, slippage=0.0005, initial_balance=2000):
     df = df.copy()
     df["FAST"] = ta.sma(df["close"], length=fast)
     df["SLOW"] = ta.sma(df["close"], length=slow)
     df["SPREAD"] = df["FAST"] - df["SLOW"]
     df["SPREAD_SIGN"] = df["SPREAD"].apply(lambda x: 1 if x > 0 else -1)
-    # df["RSI"] = ta.rsi(df["close"],rsi_period)
+    df["RSI"] = ta.rsi(df["close"],rsi_period)
     macd = ta.macd(df["close"], macd_fast, macd_slow, macd_signal)
     df["MACD"], df["MACD_SIGNAL"] = macd[f"MACD_{macd_fast}_{macd_slow}_{macd_signal}"], macd[f"MACDs_{macd_fast}_{macd_slow}_{macd_signal}"]
     # df["BB_UPPER"], df["BB_LOWER"] = bollinger_bands(df["close"], period=bb_period, num_std=bb_mult)
@@ -51,7 +51,7 @@ def backtest_advanced(df, fast, slow, macd_fast, macd_slow, macd_signal,
 
     for i in range(2, len(df)):
         row, prev, prev2 = df.iloc[i], df.iloc[i-1], df.iloc[i-2]
-        # rsi_ok = row["RSI"] < rsi_threshold
+        rsi_ok = row["RSI"] < rsi_threshold
         macd_ok = row["MACD"] > row["MACD_SIGNAL"]
         # bb_ok = row["close"] < row["BB_LOWER"]
         # adx_ok = row["ADX"] > adx_thresh
@@ -60,7 +60,7 @@ def backtest_advanced(df, fast, slow, macd_fast, macd_slow, macd_signal,
         enter_long = (
             not position
             and prev2["SPREAD_SIGN"] == -1 and prev["SPREAD_SIGN"] == -1 and row["SPREAD_SIGN"] == 1
-            # and rsi_ok
+            and rsi_ok
             and macd_ok
             # and bb_ok
             # and adx_ok
@@ -117,8 +117,8 @@ def objective(trial):
 
     fast = trial.suggest_int("fast", 5, 80)              # allow quicker signals
     slow = trial.suggest_int("slow", 30, 250)            # broader trend detection
-    # rsi_period = trial.suggest_int("rsi_period", 5, 30)  # from fast to slower RSI
-    # rsi_threshold = trial.suggest_int("rsi_threshold", 30, 70)  # covers oversold to neutral
+    rsi_period = trial.suggest_int("rsi_period", 5, 30)  # from fast to slower RSI
+    rsi_threshold = trial.suggest_int("rsi_threshold", 30, 70)  # covers oversold to neutral
     macd_fast = trial.suggest_int("macd_fast", 5, 20)    # shorter EMA for quick signals
     macd_slow = trial.suggest_int("macd_slow", 15, 50)   # slower EMA, must be > fast
     macd_signal = trial.suggest_int("macd_signal", 5, 20) # wider smoothing possibilities
@@ -137,7 +137,7 @@ def objective(trial):
         return -9999
 
     final_balance, win_rate, profit_factor, max_drawdown = backtest_advanced(
-        df_1h, fast, slow, macd_fast, macd_slow, macd_signal
+        df_1h, fast, slow, rsi_period, rsi_threshold, macd_fast, macd_slow, macd_signal
     )
 
     score = (final_balance - 2000) \
@@ -158,4 +158,4 @@ print(f"Best Final Balance: ${study.best_value:.2f}")
 
 # Save study to csv
 df_study = study.trials_dataframe()
-df_study.to_csv(DATA_DIR.joinpath("optuna_mas_optimization.csv"), index=False)
+df_study.to_csv(DATA_DIR.joinpath("optuna_mas_optimization_3_rsi.csv"), index=False)

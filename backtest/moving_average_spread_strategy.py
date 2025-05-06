@@ -11,14 +11,14 @@ DATA_DIR = CURRENT_DIR.joinpath("data")
 INITIAL_BALANCE = 2000
 SYMBOL = "BTC/USDT"
 TIMEFRAME = "1h"
-FAST_EMA = 8
-SLOW_EMA = 84
-RSI_PERIOD = 12
-RSI_THRESHOLD = 54
+FAST_EMA = 24
+SLOW_EMA = 145
+RSI_PERIOD = 30
+RSI_THRESHOLD = 68
 # RSI_EXIT = 76
-MACD_FAST = 10
-MACD_SLOW = 41
-MACD_SIGNAL = 11
+MACD_FAST = 19
+MACD_SLOW = 38
+MACD_SIGNAL = 7
 # BB_PERIOD = 19
 # BB_MULT = 2.050230528935784
 # ADX_PERIOD = 13
@@ -71,7 +71,7 @@ for i in range(2, len(df)):
     enter_long = (
         not position
         and prev2["SPREAD_SIGN"] == -1 and prev["SPREAD_SIGN"] == -1 and row["SPREAD_SIGN"] == 1
-        # and row['RSI'] < RSI_THRESHOLD
+        and row['RSI'] < RSI_THRESHOLD
         and row['MACD'] > row['MACD_SIGNAL']
         # and row['close'] < row['BB_LOWER']
         # and row['ADX'] > ADX_THRESHOLD
