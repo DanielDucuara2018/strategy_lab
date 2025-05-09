@@ -41,7 +41,7 @@ def get_data(symbol: str, timeframe: str):
     df.set_index("timestamp", inplace=True)
     return df.drop_duplicates()
 
-def backtest_advanced(df, fast, slow, rsi_period, rsi_threshold, macd_fast, macd_slow, macd_signal, atr_period, atr_ma_period, atr_trail_mult,
+def backtest_advanced(df, fast, slow, rsi_period, rsi_threshold, macd_fast, macd_slow, macd_signal, # atr_period, atr_ma_period, atr_trail_mult,
                       commission=0.0004, slippage=0.0005, initial_balance=INITIAL_BALANCE, mode="backtest"):
     # --- Indicators ---
     df["FAST"] = ta.sma(df["close"], length=fast)
@@ -54,8 +54,13 @@ def backtest_advanced(df, fast, slow, rsi_period, rsi_threshold, macd_fast, macd
     # bbands = ta.bbands(df['close'], period=BB_PERIOD, std=BB_MULT)
     # df['BB_UPPER'], df['BB_LOWER'] = bbands[f"BBU_5_{BB_MULT}"], bbands[f"BBL_5_{BB_MULT}"]
     # df["ADX"] = ta.adx(df["high"], df["low"], df["close"], length=ADX_PERIOD)[f"ADX_{ADX_PERIOD}"]
-    df["ATR"] = ta.atr(df["high"], df["low"], df["close"], length=atr_period)
-    df["ATR_MA"] = df["ATR"].rolling(atr_ma_period).mean()
+    # df["ATR"] = ta.atr(df["high"], df["low"], df["close"], length=atr_period)
+    # df["ATR_MA"] = df["ATR"].rolling(atr_ma_period).mean()
+
+    # Compute 200-day SMA for trend filter
+    # df_1d[f"SMA{trend_sma_period}"] = sma(df_1d["close"], trend_sma_period)
+    # df_1d["BULLISH_TREND"] = df_1d["close"] > df_1d[f"SMA{trend_sma_period}"]
+    # df["BULLISH_TREND"] = df_1d["BULLISH_TREND"].reindex(df.index, method="ffill")
 
     # --- Backtest Variables ---
     balance = initial_balance
@@ -65,7 +70,7 @@ def backtest_advanced(df, fast, slow, rsi_period, rsi_threshold, macd_fast, macd
     position = False
     units = 0
     entry_price = 0
-    trailing_stop = None
+    # trailing_stop = None
 
     # --- Backtest Logic ---
     for i in range(2, len(df)):
@@ -73,8 +78,8 @@ def backtest_advanced(df, fast, slow, rsi_period, rsi_threshold, macd_fast, macd
         prev = df.iloc[i - 1]
         prev2 = df.iloc[i - 2]
 
-        if np.isnan(row["ATR_MA"]):
-            continue
+        # if np.isnan(row["ATR_MA"]):
+        #     continue
 
         enter_long = (
             not position
@@ -83,20 +88,19 @@ def backtest_advanced(df, fast, slow, rsi_period, rsi_threshold, macd_fast, macd
             and row['MACD'] > row['MACD_SIGNAL']
             # and row['close'] < row['BB_LOWER']
             # and row['ADX'] > ADX_THRESHOLD
-
             # and row["close"] > row["EMA_FAST"]
             # and row["ATR"] > row["ATR_MA"]
             # and trend_bullish
         )
 
-        # exit_long = (
-        #     position
-        #     and (
-        #         prev2['SPREAD_SIGN'] == 1 and prev['SPREAD_SIGN'] == 1 and row['SPREAD_SIGN'] == -1
-        #         # or (row['RSI'] > RSI_EXIT)
-        #         # or (row['MACD'] < row['MACD_SIGNAL'])
-        #     )
-        # )
+        exit_long = (
+            position
+            and (
+                prev2['SPREAD_SIGN'] == 1 and prev['SPREAD_SIGN'] == 1 and row['SPREAD_SIGN'] == -1
+                # or (row['RSI'] > RSI_EXIT)
+                # or (row['MACD'] < row['MACD_SIGNAL'])
+            )
+        )
 
         # --- Entry Conditions ---
         if enter_long:
@@ -106,35 +110,35 @@ def backtest_advanced(df, fast, slow, rsi_period, rsi_threshold, macd_fast, macd
             entry_time = row.name
             if mode == "backtest":
                 print(f"[ENTRY] {entry_time} @ {entry_price:.2f}")
-            trailing_stop = row['close'] - atr_trail_mult * row['ATR_MA']
+            # trailing_stop = row['close'] - atr_trail_mult * row['ATR_MA']
 
 
         # --- Exit Conditions ---
-        # elif exit_long:
-        elif position and trailing_stop is not None:
-            trailing_stop = max(trailing_stop, row['close'] - atr_trail_mult * row['ATR_MA'])
-            if row['close'] < trailing_stop:
-                exit_price = row["close"] * (1 - slippage - commission)
-                pnl = (exit_price - entry_price) * units
-                exit_time = row.name
-                if mode == "backtest":
-                    print(f"[LONG EXIT] {exit_time} @ {exit_price:.2f}")
-                trades.append({
-                    "entry_time": entry_time,
-                    "exit_time": exit_time,
-                    "entry_price": entry_price,
-                    "exit_price": exit_price,
-                    "pnl": pnl,
-                    "return_pct": pnl / (units * entry_price) * 100,
-                    "old_balance": balance,
-                    "new_balance": balance + pnl
-                })
-                balance += pnl
-                peak_balance = max(peak_balance, balance)
-                drawdown = (peak_balance - balance) / peak_balance
-                max_drawdown = max(max_drawdown, drawdown)
-                position = False
-                units = 0 
+        elif exit_long:
+        # elif position and trailing_stop is not None:
+        #     trailing_stop = max(trailing_stop, row['close'] - atr_trail_mult * row['ATR_MA'])
+        #     if row['close'] < trailing_stop:
+            exit_price = row["close"] * (1 - slippage - commission)
+            pnl = (exit_price - entry_price) * units
+            exit_time = row.name
+            if mode == "backtest":
+                print(f"[LONG EXIT] {exit_time} @ {exit_price:.2f}")
+            trades.append({
+                "entry_time": entry_time,
+                "exit_time": exit_time,
+                "entry_price": entry_price,
+                "exit_price": exit_price,
+                "pnl": pnl,
+                "return_pct": pnl / (units * entry_price) * 100,
+                "old_balance": balance,
+                "new_balance": balance + pnl
+            })
+            balance += pnl
+            peak_balance = max(peak_balance, balance)
+            drawdown = (peak_balance - balance) / peak_balance
+            max_drawdown = max(max_drawdown, drawdown)
+            position = False
+            units = 0 
     
     if not trades:
         return initial_balance, 0, 0, 0, []

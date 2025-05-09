@@ -28,16 +28,17 @@ df_1h = get_data(SYMBOL, TIMEFRAME_1H)
 
 final_balance, win_rate, profit_factor, max_drawdown, trades = backtest_advanced(
     df_1h, 
-    FAST_EMA, 
-    SLOW_EMA, 
-    RSI_PERIOD, 
-    RSI_THRESHOLD, 
-    MACD_FAST,
-    MACD_SLOW, 
-    MACD_SIGNAL, 
-    ATR_PERIOD, 
-    ATR_MA_PERIOD, 
-    ATR_TRAIL_MULTIPLIER
+    # **{'fast': 15, 'slow': 83, 'rsi_period': 26, 'rsi_threshold': 68, 'macd_fast': 11, 'macd_slow': 30, 'macd_signal': 14}
+    **{'fast': 31, 'slow': 132, 'rsi_period': 22, 'rsi_threshold': 65, 'macd_fast': 18, 'macd_slow': 35, 'macd_signal': 14}
+    # SLOW_EMA, 
+    # RSI_PERIOD, 
+    # RSI_THRESHOLD, 
+    # MACD_FAST,
+    # MACD_SLOW, 
+    # MACD_SIGNAL, 
+    # ATR_PERIOD, 
+    # ATR_MA_PERIOD, 
+    # ATR_TRAIL_MULTIPLIER
 )
 # --- Results ---
 print(f"\nFinal Balance: ${final_balance:.2f}")

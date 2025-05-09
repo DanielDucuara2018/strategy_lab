@@ -33,9 +33,9 @@ def objective(trial):
     # bb_mult = trial.suggest_float("bb_mult", 1.5, 2.5)
     # adx_period = trial.suggest_int("adx_period", 10, 20)
     # adx_thresh = trial.suggest_float("adx_thresh", 15, 30)
-    atr_period = trial.suggest_int("atr_period", 10, 20)
-    atr_ma_period = trial.suggest_int("atr_ma_period", 2, 5)
-    atr_trail_mult = trial.suggest_float("atr_trail_mult", 1.0, 3.0)
+    # atr_period = trial.suggest_int("atr_period", 10, 20)
+    # atr_ma_period = trial.suggest_int("atr_ma_period", 2, 5)
+    # atr_trail_mult = trial.suggest_float("atr_trail_mult", 1.0, 3.0)
     # trend_sma_period = 0 # trial.suggest_int("trend_sma_period", 10, 300)  # from short trend to 1-year
 
 
@@ -51,9 +51,9 @@ def objective(trial):
         macd_fast, 
         macd_slow, 
         macd_signal, 
-        atr_period, 
-        atr_ma_period, 
-        atr_trail_mult, 
+        # atr_period, 
+        # atr_ma_period, 
+        # atr_trail_mult, 
         mode=None
     )
 
@@ -64,17 +64,17 @@ def objective(trial):
     #         - (max_drawdown * 2000)
     
     # Option 1
-    score = (
-        (final_balance - INITIAL_BALANCE)
-        - (max_drawdown * 3)
-        + (win_rate * 200 if len(trades) > 5 else 0)
-    )
+    # score = (
+    #     (final_balance - INITIAL_BALANCE)
+    #     - (max_drawdown * 3)
+    #     + (win_rate * 200 if len(trades) > 5 else 0)
+    # )
 
     # Option 2
-    # score = (
-    #     (final_balance - INITIAL_BALANCE) / (1 + max_drawdown + 1 / (1 + profit_factor))
-    #     + (win_rate * 100 if len(trades) > 5 else 0)
-    # )
+    score = (
+        (final_balance - INITIAL_BALANCE) / (1 + max_drawdown + 1 / (1 + profit_factor))
+        + (win_rate * 100 if len(trades) > 5 else 0)
+    )
 
     return score
 
@@ -89,4 +89,4 @@ print(f"Best score: {study.best_value:.2f}")
 
 # Save study to csv
 df_study = study.trials_dataframe()
-df_study.to_csv(DATA_DIR.joinpath("optuna_mas_optimization_4_atr.csv"), index=False)
+df_study.to_csv(DATA_DIR.joinpath("optuna_mas_optimization_4_macd_rsi_score_option_2.csv"), index=False)
