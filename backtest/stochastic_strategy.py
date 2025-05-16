@@ -1,7 +1,7 @@
-import pandas as pd
-import pandas_ta as ta
 import ccxt
 import matplotlib.pyplot as plt
+import pandas as pd
+import pandas_ta as ta
 
 # Strategy parameters
 RSI_PERIOD = 14
@@ -16,13 +16,17 @@ init_date = pd.Timestamp("2017-01-01")
 today = pd.Timestamp.today()
 exchange = ccxt.binance()
 while init_date < today:
-    ohlcv += exchange.fetch_ohlcv('BTC/USDT', since=init_date.value // 10**6, limit=limit, timeframe='1h')
+    ohlcv += exchange.fetch_ohlcv(
+        "BTC/USDT", since=init_date.value // 10**6, limit=limit, timeframe="1h"
+    )
     init_date += pd.Timedelta(1000, "h")
 
 # DataFrame setup
-df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume']).drop_duplicates()
-df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-df.set_index('timestamp', inplace=True)
+df = pd.DataFrame(
+    ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"]
+).drop_duplicates()
+df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+df.set_index("timestamp", inplace=True)
 
 # Compute indicators using pandas-ta
 df["RSI"] = ta.rsi(df["close"], length=RSI_PERIOD)
@@ -74,15 +78,17 @@ for i in range(1, len(df)):
             position = False
             exit_time = row.name
             print(f"[EXIT] {exit_time} @ {price:.2f}")
-            trades.append({
-                "entry_time": entry_time,
-                "exit_time": exit_time,
-                "entry_price": entry_price,
-                "exit_price": price,
-                "pnl": sell_balance - balance,
-                "old_balance": balance,
-                "new_balance": sell_balance
-            })
+            trades.append(
+                {
+                    "entry_time": entry_time,
+                    "exit_time": exit_time,
+                    "entry_price": entry_price,
+                    "exit_price": price,
+                    "pnl": sell_balance - balance,
+                    "old_balance": balance,
+                    "new_balance": sell_balance,
+                }
+            )
             balance = sell_balance
 
 # Final results
@@ -93,10 +99,14 @@ if trades:
     print(trade_df)
 
     # Performance Metrics
-    wins = trade_df[trade_df['pnl'] > 0]
-    losses = trade_df[trade_df['pnl'] <= 0]
+    wins = trade_df[trade_df["pnl"] > 0]
+    losses = trade_df[trade_df["pnl"] <= 0]
     win_rate = len(wins) / len(trade_df) * 100
-    profit_factor = wins['pnl'].sum() / abs(losses['pnl'].sum()) if not losses.empty else float('inf')
+    profit_factor = (
+        wins["pnl"].sum() / abs(losses["pnl"].sum())
+        if not losses.empty
+        else float("inf")
+    )
 
     print("\nStats:")
     print(f"Total Trades: {len(trade_df)}")
@@ -105,7 +115,7 @@ if trades:
     print(f"Win Rate: {win_rate:.2f}%")
     print(f"Profit Factor: {profit_factor:.2f}")
     print(f"Total PnL: ${trade_df['pnl'].sum():.2f}")
-    
+
     # Plot
     plt.figure(figsize=(14, 6))
     plt.plot(df["close"], label="Close Price", alpha=0.7)

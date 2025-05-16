@@ -1,11 +1,11 @@
 import ccxt
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import pandas_ta as ta
-import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, roc_auc_score
-import numpy as np
+from sklearn.model_selection import GridSearchCV, cross_val_score, train_test_split
 
 # Parameters
 RSI_PERIOD = 2
@@ -23,20 +23,26 @@ init_date = pd.Timestamp("2017-01-01")
 today = pd.Timestamp.today()
 exchange = ccxt.binance()
 while init_date < today:
-    ohlcv += exchange.fetch_ohlcv('BTC/USDT', since=init_date.value // 10**6, limit=limit, timeframe='1h')
+    ohlcv += exchange.fetch_ohlcv(
+        "BTC/USDT", since=init_date.value // 10**6, limit=limit, timeframe="1h"
+    )
     init_date += pd.Timedelta(1000, "h")
 
 # DataFrame setup
-df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume']).drop_duplicates()
-df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-df.set_index('timestamp', inplace=True)
+df = pd.DataFrame(
+    ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"]
+).drop_duplicates()
+df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+df.set_index("timestamp", inplace=True)
 
 # Indicators
 df["RSI"] = ta.rsi(df["close"], length=RSI_PERIOD)
 df["EMA"] = ta.ema(df["close"], length=EMA_PERIOD)
 df["ATR"] = ta.atr(df["high"], df["low"], df["close"], length=ATR_PERIOD)
 df["ATR_MA"] = df["ATR"].rolling(20).mean()
-df["ADX"] = ta.adx(df["high"], df["low"], df["close"], length=ADX_PERIOD)[f"ADX_{ADX_PERIOD}"]
+df["ADX"] = ta.adx(df["high"], df["low"], df["close"], length=ADX_PERIOD)[
+    f"ADX_{ADX_PERIOD}"
+]
 bb = ta.bbands(df["close"], length=BBW_PERIOD)
 df["BBW"] = (bb[f"BBU_{BBW_PERIOD}_2.0"] - bb[f"BBL_{BBW_PERIOD}_2.0"]) / df["close"]
 df["BBW_SMA"] = df["BBW"].rolling(20).mean()
@@ -68,7 +74,7 @@ param_grid = {
 
 # Grid Search with Cross-Validation
 rf = RandomForestClassifier(random_state=42)
-grid_search = GridSearchCV(rf, param_grid, cv=5, scoring='f1', verbose=1)
+grid_search = GridSearchCV(rf, param_grid, cv=5, scoring="f1", verbose=1)
 grid_search.fit(X_train, y_train)
 
 # Best model
@@ -84,7 +90,7 @@ print(classification_report(y_test, y_pred))
 print(f"🎯 AUC-ROC Score: {roc_auc_score(y_test, y_proba):.2f}")
 
 # Optional: Cross-validation score
-cv_scores = cross_val_score(best_model, X, y, cv=5, scoring='f1')
+cv_scores = cross_val_score(best_model, X, y, cv=5, scoring="f1")
 print(f"📊 Cross-Validation F1 Scores: {cv_scores}")
 print(f"Mean F1 Score: {np.mean(cv_scores):.3f}")
 
@@ -125,16 +131,18 @@ for i in range(len(df_bt)):
             position = False
             exit_time = row.name
             print(f"[ML EXIT] {exit_time} @ {price:.2f}")
-            ml_trades.append({
-                "entry_time": entry_time,
-                "exit_time": exit_time,
-                "entry_price": entry_price,
-                "exit_price": price,
-                "pnl": sell_balance - balance,
-                "return_pct": (price - entry_price) / entry_price * 100,
-                "old_balance": balance,
-                "new_balance": sell_balance
-            })
+            ml_trades.append(
+                {
+                    "entry_time": entry_time,
+                    "exit_time": exit_time,
+                    "entry_price": entry_price,
+                    "exit_price": price,
+                    "pnl": sell_balance - balance,
+                    "return_pct": (price - entry_price) / entry_price * 100,
+                    "old_balance": balance,
+                    "new_balance": sell_balance,
+                }
+            )
             balance = sell_balance
 
 # ----- Results -----

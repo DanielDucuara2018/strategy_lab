@@ -1,15 +1,13 @@
+import openai
 import streamlit as st
 from youtube_transcript_api import YouTubeTranscriptApi
-import openai
-import yfinance as yf
-import matplotlib.pyplot as plt
-import pandas as pd
-import io
 
 openai.api_key = "YOUR_OPENAI_KEY"
 
+
 def get_video_id(link: str):
     return link.split("v=")[-1].split("&")[0]
+
 
 def get_transcript(video_id: str) -> str:
     try:
@@ -17,6 +15,7 @@ def get_transcript(video_id: str) -> str:
         return " ".join([entry["text"] for entry in transcript])
     except Exception as e:
         return f"Error: {str(e)}"
+
 
 def extract_strategy(transcript: str) -> str:
     prompt = f"""
@@ -32,10 +31,10 @@ if close > ma50 and volume > 100000:
 Use pandas-style code if possible.
 """
     response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}]
+        model="gpt-4", messages=[{"role": "user", "content": prompt}]
     )
     return response.choices[0].message.content.strip()
+
 
 def generate_sample_strategy_code(logic: str) -> str:
     return f"""
@@ -54,6 +53,7 @@ plt.title("Strategy Example")
 plt.grid(True)
 plt.show()
 """
+
 
 st.title("🧠 YouTube Trading Strategy Bot")
 
@@ -77,4 +77,6 @@ if yt_link:
             st.subheader("🧪 Sample Generated Code")
             st.code(code, language="python")
 
-            st.download_button("💾 Download Strategy Code", code, file_name="strategy.py")
+            st.download_button(
+                "💾 Download Strategy Code", code, file_name="strategy.py"
+            )
