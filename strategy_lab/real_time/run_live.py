@@ -3,7 +3,7 @@ import datetime
 import time
 import pandas as pd
 from pathlib import Path
-from trading.backtest.moving_average_spread_strategy import (
+from strategy_lab.backtest.moving_average_spread_strategy import (
     compute_indicators,
     get_data,
     INITIAL_BALANCE,
