@@ -191,13 +191,15 @@ def backtest_advanced(
             units = 0
 
     if not trades:
-        return initial_balance, 0, 0, 0, []
+        return initial_balance, 0, 0, 0, [], []
 
-    win_rate = len([p["pnl"] for p in trades if p["pnl"] > 0]) / len(trades)
-    positive_sum = sum([p["pnl"] for p in trades if p["pnl"] > 0])
-    negative_sum = abs(sum([p["pnl"] for p in trades if p["pnl"] < 0]))
+    win_rate = len([t["pnl"] for t in trades if t["pnl"] > 0]) / len(trades)
+    positive_sum = sum([t["pnl"] for t in trades if t["pnl"] > 0])
+    negative_sum = abs(sum([t["pnl"] for t in trades if t["pnl"] < 0]))
+    returns = [t["return_pct"] for t in trades]
     if negative_sum == 0:
         profit_factor = 10.0  # cap to avoid infinity
     else:
         profit_factor = positive_sum / negative_sum
-    return balance, win_rate, profit_factor, max_drawdown, trades
+
+    return balance, win_rate, profit_factor, max_drawdown, trades, returns

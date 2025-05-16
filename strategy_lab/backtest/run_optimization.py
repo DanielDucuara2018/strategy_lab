@@ -45,21 +45,23 @@ def objective(trial):
     if fast >= slow or macd_fast >= macd_slow:
         return -9999
 
-    final_balance, win_rate, profit_factor, max_drawdown, trades = backtest_advanced(
-        df_1h,
-        df_1d,
-        fast,
-        slow,
-        rsi_period,
-        rsi_threshold,
-        macd_fast,
-        macd_slow,
-        macd_signal,
-        trend_sma_period,
-        # atr_period,
-        # atr_ma_period,
-        # atr_trail_mult,
-        mode=None,
+    final_balance, win_rate, profit_factor, max_drawdown, trades, returns = (
+        backtest_advanced(
+            df_1h,
+            df_1d,
+            fast,
+            slow,
+            rsi_period,
+            rsi_threshold,
+            macd_fast,
+            macd_slow,
+            macd_signal,
+            trend_sma_period,
+            # atr_period,
+            # atr_ma_period,
+            # atr_trail_mult,
+            mode=None,
+        )
     )
 
     # Old option
@@ -80,6 +82,18 @@ def objective(trial):
         1 + max_drawdown + 1 / (1 + profit_factor)
     ) + (win_rate * 100 if len(trades) > 5 else 0)
 
+    # TODO improve this option optimization
+    # Option 3: prioritize risk-adjusted return + penalize drawdown + reward consistency
+    # sharpe_like = 0
+    # if len(returns) > 0:
+    #     sharpe_like = np.mean(returns) / (np.std(returns) + 1e-9)
+    # score = (
+    #     sharpe_like * 300
+    #     + (profit_factor * 150)
+    #     + (final_balance - INITIAL_BALANCE) * 0.01
+    #     - (max_drawdown * 0.5)
+    # )
+
     return score
 
 
@@ -95,6 +109,6 @@ print(f"Best score: {study.best_value:.2f}")
 # Save study to csv
 df_study = study.trials_dataframe()
 df_study.to_csv(
-    OPTI_DIR.joinpath("optuna_mas_optimization_5_bullish_trend_score_option_2.csv"),
+    OPTI_DIR.joinpath("optuna_mas_optimization_5_bullish_trend_score_option_3.csv"),
     index=False,
 )

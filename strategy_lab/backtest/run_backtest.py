@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from moving_average_spread_strategy import (
@@ -17,29 +18,35 @@ IMAGES_DIR = CURRENT_DIR.joinpath("images")
 df_1h = get_data(SYMBOL, TIMEFRAME_1H)
 df_1d = get_data(SYMBOL, TIMEFRAME_1D)
 
-final_balance, win_rate, profit_factor, max_drawdown, trades = backtest_advanced(
-    df_1h,
-    df_1d,
-    # **{'fast': 6, 'slow': 67, 'rsi_period': 25, 'rsi_threshold': 65, 'macd_fast': 5, 'macd_slow': 48, 'macd_signal': 12, 'trend_sma_period': 10}
-    # **{'fast': 8, 'slow': 82, 'rsi_period': 27, 'rsi_threshold': 68, 'macd_fast': 19, 'macd_slow': 29, 'macd_signal': 7, 'trend_sma_period': 10}
-    **{
-        "fast": 12,
-        "slow": 70,
-        "rsi_period": 29,
-        "rsi_threshold": 68,
-        "macd_fast": 20,
-        "macd_slow": 40,
-        "macd_signal": 17,
-        "trend_sma_period": 12,
-    },
-    # RSI_PERIOD,
-    # RSI_THRESHOLD,
-    # MACD_FAST,
-    # MACD_SLOW,
-    # MACD_SIGNAL,
-    # ATR_PERIOD,
-    # ATR_MA_PERIOD,
-    # ATR_TRAIL_MULTIPLIER
+final_balance, win_rate, profit_factor, max_drawdown, trades, returns = (
+    backtest_advanced(
+        df_1h,
+        df_1d,
+        # **{'fast': 6, 'slow': 67, 'rsi_period': 25, 'rsi_threshold': 65, 'macd_fast': 5, 'macd_slow': 48, 'macd_signal': 12, 'trend_sma_period': 10}
+        # **{'fast': 8, 'slow': 82, 'rsi_period': 27, 'rsi_threshold': 68, 'macd_fast': 19, 'macd_slow': 29, 'macd_signal': 7, 'trend_sma_period': 10}
+        **{
+            "fast": 12,
+            "slow": 70,
+            "rsi_period": 29,
+            "rsi_threshold": 68,
+            "macd_fast": 20,
+            "macd_slow": 40,
+            "macd_signal": 17,
+            "trend_sma_period": 12,
+        },
+        # **{'fast': 14, 'slow': 49, 'rsi_period': 24, 'rsi_threshold': 66, 'macd_fast': 16, 'macd_slow': 24, 'macd_signal': 5, 'trend_sma_period': 10}
+        # **{'fast': 9, 'slow': 39, 'rsi_period': 19, 'rsi_threshold': 68, 'macd_fast': 11, 'macd_slow': 22, 'macd_signal': 8, 'trend_sma_period': 10}
+        # **{'fast': 15, 'slow': 48, 'rsi_period': 27, 'rsi_threshold': 63, 'macd_fast': 7, 'macd_slow': 44, 'macd_signal': 13, 'trend_sma_period': 10}
+        # **{'fast': 14, 'slow': 49, 'rsi_period': 22, 'rsi_threshold': 65, 'macd_fast': 8, 'macd_slow': 31, 'macd_signal': 10, 'trend_sma_period': 10}
+        # RSI_PERIOD,
+        # RSI_THRESHOLD,
+        # MACD_FAST,
+        # MACD_SLOW,
+        # MACD_SIGNAL,
+        # ATR_PERIOD,
+        # ATR_MA_PERIOD,
+        # ATR_TRAIL_MULTIPLIER
+    )
 )
 # --- Results ---
 print(f"\nFinal Balance: ${final_balance:.2f}")
@@ -63,6 +70,9 @@ if trades:
     profit_factor = total_wins / total_losses if total_losses != 0 else float("inf")
     max_drawdown = (trade_df["pnl"].cumsum().cummax() - trade_df["pnl"].cumsum()).max()
     total_pnl = trade_df["pnl"].sum()
+    sharpe_like = float("nan")
+    if len(returns) > 0:
+        sharpe_like = np.mean(returns) / (np.std(returns) + 1e-9)  # avoid div by zero
 
     print("\nStats:")
     print(f"Total Trades: {len(trade_df)}")
@@ -73,6 +83,7 @@ if trades:
     print(f"Win Rate (Count-Based): {win_rate:.2f}%")
     print(f"Win Rate (PnL-Weighted): {value_weighted_win_rate:.2f}%")
     print(f"Profit Factor: {profit_factor:.2f}")
+    print(f"Sharpe-like Ratio (return_pct/std): {sharpe_like:.2f}")
     print(f"Max Drawdown: ${max_drawdown:.2f}")
     print(f"Total PnL: ${total_pnl:.2f}")
     print(f"Final Balance: ${(total_pnl + INITIAL_BALANCE):.2f}")

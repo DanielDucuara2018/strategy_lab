@@ -10,17 +10,8 @@ from strategy_lab.backtest.moving_average_spread_strategy import (
     TIMEFRAME_1H,
     TIMEFRAME_1D,
     SYMBOL,
-    # FAST_EMA,
-    # SLOW_EMA,
-    # RSI_PERIOD,
-    # RSI_THRESHOLD,
-    # MACD_FAST,
-    # MACD_SLOW,
-    # MACD_SIGNAL,
-    # ATR_PERIOD,
-    # ATR_MA_PERIOD,
-    # ATR_TRAIL_MULTIPLIER
 )
+from strategy_lab.telegram import TelegramBot
 
 
 CURRENT_DIR = Path(__file__).parent
@@ -69,7 +60,6 @@ def run_live(
     commission=0.0004,
     slippage=0.0005,
     initial_balance=INITIAL_BALANCE,
-    mode="backtest",
 ):
     df, df_1d = compute_indicators(
         df,
@@ -91,6 +81,7 @@ def run_live(
     units = 0
     entry_price = 0
 
+    bot = TelegramBot(bot_token="your_token", chat_id="your_chat_id")
     print("[INFO] running live strategy")
     while True:
         df_new, df_1d_new = (
@@ -145,8 +136,9 @@ def run_live(
             units = balance / entry_price
             position = True
             entry_time = row.name
-            if mode == "backtest":
-                print(f"[ENTRY] {entry_time} @ {entry_price:.2f}")
+            msg = f"📈 [ENTRY] {entry_time} @ {entry_price:.2f}"
+            print(msg)
+            bot.send_telegram_message(msg)
             # trailing_stop = row['close'] - atr_trail_mult * row['ATR_MA']
 
         # --- Exit Conditions ---
@@ -157,8 +149,7 @@ def run_live(
             exit_price = row["close"] * (1 - slippage - commission)
             pnl = (exit_price - entry_price) * units
             exit_time = row.name
-            if mode == "backtest":
-                print(f"[LONG EXIT] {exit_time} @ {exit_price:.2f}")
+            return_pct = pnl / (units * entry_price) * 100
             trades.append(
                 {
                     "entry_time": entry_time,
@@ -166,7 +157,7 @@ def run_live(
                     "entry_price": entry_price,
                     "exit_price": exit_price,
                     "pnl": pnl,
-                    "return_pct": pnl / (units * entry_price) * 100,
+                    "return_pct": return_pct,
                     "old_balance": balance,
                     "new_balance": balance + pnl,
                 }
@@ -177,6 +168,12 @@ def run_live(
             max_drawdown = max(max_drawdown, drawdown)
             position = False
             units = 0
+            msg = (
+                f"📉 [LONG EXIT] Time: {exit_time} Price: ${exit_price:.2f}\n"
+                f"PnL: ${pnl:.2f} | Return: {return_pct:.2f}%"
+            )
+            print(msg)
+            bot.send_telegram_message(msg)
 
         wait_for_next_candle(TIMEFRAME_1H)
 

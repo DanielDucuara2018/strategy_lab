@@ -1,4 +1,5 @@
 ccxt==4.4.75
+httpx==0.28.1
 matplotlib==3.10.1
 mplfinance==0.12.10b0
 numpy==1.26.4
