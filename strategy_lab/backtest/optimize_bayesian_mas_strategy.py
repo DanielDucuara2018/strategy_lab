@@ -11,7 +11,7 @@ from moving_average_spread_strategy import (
 )
 
 CURRENT_DIR = Path(__file__).parent
-DATA_DIR = CURRENT_DIR.joinpath("data")
+OPTI_DIR = CURRENT_DIR.joinpath("optimization")
 
 
 # --- Optuna Objective Function ---
@@ -95,6 +95,6 @@ print(f"Best score: {study.best_value:.2f}")
 # Save study to csv
 df_study = study.trials_dataframe()
 df_study.to_csv(
-    DATA_DIR.joinpath("optuna_mas_optimization_5_bullish_trend_score_option_2.csv"),
+    OPTI_DIR.joinpath("optuna_mas_optimization_5_bullish_trend_score_option_2.csv"),
     index=False,
 )

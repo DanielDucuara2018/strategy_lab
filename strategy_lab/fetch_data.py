@@ -6,7 +6,7 @@ import pandas as pd
 CURRENT_DIR = Path(__file__).parent
 DATA_DIR = CURRENT_DIR.joinpath("backtest", "data")
 
-SYMBOL = "BTC/USDT"
+SYMBOL = "ETH/USDT"
 TIMEFRAME = "1h"
 
 ohlcv = []
