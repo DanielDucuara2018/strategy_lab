@@ -1,0 +1,58 @@
+[project]
+name = "strategy_lab"
+version = "0.1.0"
+description = "A package for backtesting and running live trading strategies."
+authors = [{ name = "Daniel Ducuara", email = "daniel14015@gamil.com" }]
+readme = "README.md"
+requires-python = ">=3.12"
+
+dependencies = [
+    "ccxt==4.4.75",
+    "httpx==0.28.1",
+    "matplotlib==3.10.1",
+    "mplfinance==0.12.10b0",
+    "numpy==1.26.4",
+    "openai==1.75.0",
+    "pandas==2.2.3",
+    "pandas_ta==0.3.14b0",
+    "ruff==0.11.10",
+    "scikit-learn==1.6.1",
+    "streamlit==1.44.1",
+    "yfinance==0.2.55",
+    "youtube-transcript-api==1.0.3",
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 100
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+
+[tool.ruff.lint]
+extend-select = [
+    "I", # isort (imports sorting)
+]
+fixable = ["I", "F401"]

@@ -1,3 +1,9 @@
+# Install
+
+```bash
+pip install -e .
+```
+
 # Improvements
 
 | Strategy            | Indicators Used                   | Strengths                          | Weaknesses                                        |
