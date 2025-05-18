@@ -12,11 +12,17 @@ from strategy_lab.backtest.moving_average_spread_strategy import (
     SYMBOL,
 )
 from strategy_lab.telegram import TelegramBot
-
+import logging
 
 CURRENT_DIR = Path(__file__).parent
 IMAGES_DIR = CURRENT_DIR.joinpath("images")
 DATA_DIR = CURRENT_DIR.joinpath("data")
+
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+
+logger = logging.getLogger(__name__)
 
 exchange = ccxt.binance()
 
@@ -82,7 +88,9 @@ def run_live(
     entry_price = 0
 
     bot = TelegramBot(bot_token="your_token", chat_id="your_chat_id")
-    print("[INFO] running live strategy")
+    msg = "Running live strategy"
+    bot.send_telegram_message(msg)
+    logger.info(msg)
     while True:
         df_new, df_1d_new = (
             fetch_candles(SYMBOL, TIMEFRAME_1H, 50),
@@ -137,7 +145,7 @@ def run_live(
             position = True
             entry_time = row.name
             msg = f"📈 [ENTRY] {entry_time} @ {entry_price:.2f}"
-            print(msg)
+            logger.info(msg)
             bot.send_telegram_message(msg)
             # trailing_stop = row['close'] - atr_trail_mult * row['ATR_MA']
 
@@ -172,7 +180,7 @@ def run_live(
                 f"📉 [LONG EXIT] Time: {exit_time} Price: ${exit_price:.2f}\n"
                 f"PnL: ${pnl:.2f} | Return: {return_pct:.2f}%"
             )
-            print(msg)
+            logger.info(msg)
             bot.send_telegram_message(msg)
 
         wait_for_next_candle(TIMEFRAME_1H)

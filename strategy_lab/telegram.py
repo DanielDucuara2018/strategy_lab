@@ -1,8 +1,15 @@
 import httpx
 from typing import Literal, Any
+import logging
 
 BASE_URL = "https://api.telegram.org"
 TELEGRAM_TIMEOUT = 30
+
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+
+logger = logging.getLogger(__name__)
 
 
 class TelegramBot:
@@ -31,4 +38,9 @@ class TelegramBot:
 
     def send_telegram_message(self, message: str) -> None:
         payload = {"chat_id": self.chat_id, "text": message, "parse_mode": "Markdown"}
-        self._request("sendMessage", body=payload)
+        response = self._request("sendMessage", body=payload)
+        logger.info("sendMessage bot response %s", response)
+
+    def send_get_updates(self) -> None:
+        response = self._request("getUpdates")
+        logger.info("getUpdates bot response %s", response)
